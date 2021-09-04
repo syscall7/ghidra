@@ -18,9 +18,10 @@ package ghidra.server.stream;
 import java.io.*;
 import java.net.Socket;
 import java.security.SecureRandom;
+import java.util.*;
 
-import javax.net.SocketFactory;
-import javax.net.ssl.SSLSocketFactory;
+import javax.net.*;
+import javax.net.ssl.*;
 
 import db.buffers.BlockStream;
 import db.buffers.DataBuffer;
@@ -63,7 +64,7 @@ public abstract class RemoteBlockStreamHandle<T extends BlockStream> implements 
 	public static final String TERM_SUFFIX = "@";
 	public static final int TERM_LENGTH = TERM_PREFIX.length() + 16 + TERM_SUFFIX.length();
 
-	private String streamServerIPAddress;
+	private String streamServerHostname;
 	private int streamServerPort;
 	private long streamID;
 	private long authenticationToken;
@@ -82,8 +83,8 @@ public abstract class RemoteBlockStreamHandle<T extends BlockStream> implements 
 	 */
 	public RemoteBlockStreamHandle(BlockStreamServer server, int blockCount, int blockSize)
 			throws IOException {
-		streamServerIPAddress = server.getServerHostname();
-		if (!server.isRunning() || streamServerIPAddress == null) {
+		streamServerHostname = server.getServerHostname();
+		if (!server.isRunning() || streamServerHostname == null) {
 			throw new IOException("block stream server is not running");
 		}
 		streamServerPort = server.getServerPort();
@@ -278,7 +279,12 @@ public abstract class RemoteBlockStreamHandle<T extends BlockStream> implements 
 		}
 
 		SocketFactory socketFactory = SSLSocketFactory.getDefault();
-		Socket socket = socketFactory.createSocket(streamServerIPAddress, streamServerPort);
+		SSLSocket socket = (SSLSocket)socketFactory.createSocket(streamServerHostname, streamServerPort);
+
+		List<SNIServerName> serverNames = Arrays.asList(new SNIHostName(streamServerHostname));
+		SSLParameters params = socket.getSSLParameters();
+		params.setServerNames(serverNames);
+		socket.setSSLParameters(params);
 
 		// TODO: set socket options ?
 
